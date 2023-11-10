@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Do do list reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1em;
+            text-align: center;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+
+        label {
+            margin-bottom: 8px;
+        }
+
+        input, select {
+            padding: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .priority-high {
+            border-left: 4px solid #e74c3c;
+            color: #e74c3c;
+        }
+
+        .priority-medium {
+            border-left: 4px solid #f39c12;
+            color: #f39c12;
+        }
+
+        .priority-low {
+            border-left: 4px solid #2ecc71;
+            color: #2ecc71;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .dialog-box {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+    </style>
+</head>
+<body>
+    
+
+    <main>
+        <h2>Task List</h2>
+        <ul id="taskList"></ul>
+
+        <button onclick="showDialog('pending')" id="pendingBtn">Pending Tasks</button>
+        <button onclick="showDialog('completed')" id="completedBtn">Completed Tasks</button>
+        
+
+        <div class="dialog-box" id="pendingDialog">
+            <span class="close-btn" onclick="closeDialog('pending')">&times;</span>
+            <h2>Pending Tasks</h2>
+            <ul id="pendingList"></ul>
+        </div>
+
+        <div class="dialog-box" id="completedDialog">
+            <span class="close-btn" onclick="closeDialog('completed')">&times;</span>
+            <h2>Completed Tasks</h2>
+            <ul id="completedList"></ul>
+        </div>
+        <button type="button" onclick="resetTasks()">Reset Tasks</button>
+        <h2>Create a New Task</h2>
+        <form id="taskForm">
+            <label for="taskName">Task Name:</label>
+            <input type="text" id="taskName" required>
+
+            <label for="deadline">Deadline:</label>
+            <input type="date" id="deadline" required>
+
+            <label for="priority">Priority:</label>
+            <select id="priority" required>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+
+            <label for="label">Label:</label>
+            <input type="text" id="label">
+
+            <label for="assignee">Assignee:</label>
+            <input type="text" id="assignee">
+
+            <button type="button" onclick="addTask()">Add Task</button>
+            
+        </form>
+
+        <div class="overlay" onclick="closeAllDialogs()"></div>
+
+        <script>
+            function addTask() {
+                const taskName = document.getElementById('taskName').value;
+                const deadline = document.getElementById('deadline').value;
+                const priority = document.getElementById('priority').value;
+                const label = document.getElementById('label').value;
+                const assignee = document.getElementById('assignee').value;
+
+                const taskList = document.getElementById('taskList');
+                const li = document.createElement('li');
+
+                li.innerHTML = `
+                    <strong>${taskName}</strong>
+                    <br>
+                    Deadline: ${deadline}
+                    <br>
+                    Priority: ${priority}
+                    <br>
+                    Label: ${label}
+                    <br>
+                    Assignee: ${assignee}
+                    <br>
+                    <button onclick="toggleTaskStatus(this)">Finish</button>
+                `;
+
+                // Add priority class for styling
+                if (priority === 'high') {
+                    li.classList.add('priority-high');
+                } else if (priority === 'medium') {
+                    li.classList.add('priority-medium');
+                } else {
+                    li.classList.add('priority-low');
+                }
+
+                taskList.appendChild(li);
+
+                // Clear form fields
+                document.getElementById('taskForm').reset();
+
+                // Determine the initial status and move the task to the appropriate dialog
+                const initialStatus = getInitialStatus(priority);
+                moveTaskToDialog(li, initialStatus);
+            }
+
+            function toggleTaskStatus(button) {
+                const taskItem = button.parentNode;
+                const isCompleted = taskItem.classList.contains('completed');
+
+                if (isCompleted) {
+                    taskItem.classList.remove('completed');
+                    button.textContent = 'Finish';
+                    moveTaskToDialog(taskItem, 'pending');
+                } else {
+                    taskItem.classList.add('completed');
+                    button.textContent = 'Undo';
+                    moveTaskToDialog(taskItem, 'completed');
+                }
+            }
+
+            function moveTaskToDialog(taskItem, status) {
+                const dialogId = `${status}Dialog`;
+                const dialog = document.getElementById(dialogId);
+                const taskList = document.getElementById(`${status}List`);
+
+                taskList.appendChild(taskItem);
+                showDialog(status);
+            }
+
+            function getInitialStatus(priority) {
+                // You can customize the logic based on your requirements
+                return priority === 'high' ? 'pending' : 'upcoming';
+            }
+
+            function resetTasks() {
+                const taskList = document.getElementById('taskList');
+                const pendingList = document.getElementById('pendingList');
+                const completedList = document.getElementById('completedList');
+                const upcomingList = document.getElementById('upcomingList');
+
+                taskList.innerHTML = '';
+                pendingList.innerHTML = '';
+                completedList.innerHTML = '';
+                upcomingList.innerHTML = '';
+
+                closeAllDialogs();
+            }
+
+            function showDialog(dialogType) {
+                const overlay = document.querySelector('.overlay');
+                overlay.style.display = 'block';
+
+                const dialog = document.getElementById(`${dialogType}Dialog`);
+                dialog.style.display = 'block';
+            }
+
+            function closeDialog(dialogType) {
+                const overlay = document.querySelector('.overlay');
+                overlay.style.display = 'none';
+
+                const dialog = document.getElementById(`${dialogType}Dialog`);
+                dialog.style.display = 'none';
+            }
+
+            function closeAllDialogs() {
+                const overlay = document.querySelector('.overlay');
+                overlay.style.display = 'none';
+
+                const dialogs = document.querySelectorAll('.dialog-box');
+                dialogs.forEach(dialog => {
+                    dialog.style.display = 'none';
+                });
+            }
+        </script>
+        <!-- Copyright -->
+    <div class="author-text">
+        <center><p>@Copyright designed  by <a href="https://github.com/abdellatif-laghjaj" target="_blank"><b>Yuvaraj Edunuri</b></a></p></center>
+    </div>
+    </main>
+    
+</body>
+</html>
